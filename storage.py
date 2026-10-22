@@ -9,7 +9,11 @@ def init_db():
     """初始化数据库，建表"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    # 注意：新增了 type 字段，默认值是 '支出'
+    
+    # 【关键修复】强行删掉旧的表（确保旧数据不会干扰新结构）
+    cursor.execute("DROP TABLE IF EXISTS bills") 
+    
+    # 重新建表（包含新的 type 字段）
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bills (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

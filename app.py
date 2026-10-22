@@ -7,6 +7,8 @@ import storage
 import datetime
 import plotly.express as px
 
+storage.init_db()
+
 st.set_page_config(page_title="极简记账本", page_icon="💰", layout="centered")
 st.title("💰 极简记账本")
 
