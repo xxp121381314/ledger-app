@@ -3,7 +3,7 @@
 
 import sqlite3
 
-DB_FILE = "ledger_v2.db"
+DB_FILE = "final_ledger.db"
 
 def init_db():
     """初始化数据库，建表"""
