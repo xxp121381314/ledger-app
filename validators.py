@@ -2,7 +2,7 @@
 # 记账 APP 的校验模块
 
 # 允许的分类列表
-CATEGORIES = ["餐饮", "交通", "购物", "娱乐","医疗", "其他"]
+CATEGORIES = ["餐饮", "交通", "购物", "娱乐", "医疗", "工资", "兼职", "其他"]
 
 def validate_amount(amount_str):
     """
