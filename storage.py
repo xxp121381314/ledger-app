@@ -1,19 +1,12 @@
 # -*- coding: utf-8 -*-
-# 记账 APP 的数据库模块（升级版）
-
 import sqlite3
 
-DB_FILE = "final_ledger.db"
+DB_FILE = "ledger.db"
 
 def init_db():
-    """初始化数据库，建表"""
+    """初始化数据库"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    
-    # 【关键修复】强行删掉旧的表（确保旧数据不会干扰新结构）
-    cursor.execute("DROP TABLE IF EXISTS bills") 
-    
-    # 重新建表（包含新的 type 字段）
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bills (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,8 +20,8 @@ def init_db():
     conn.commit()
     conn.close()
 
-def add_bill(amount, category, note, date, bill_type="支出"):
-    """添加一笔账单"""
+def add_bill(amount, category, note, date, bill_type):
+    """添加账单"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute(
@@ -38,34 +31,40 @@ def add_bill(amount, category, note, date, bill_type="支出"):
     conn.commit()
     conn.close()
 
-def get_all_bills():
-    """获取所有账单，返回列表"""
+def get_bills_by_filter(month_str=None, keyword=None):
+    """支持月份和关键词组合筛选账单"""
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM bills ORDER BY date DESC, id DESC")
+    
+    sql = "SELECT * FROM bills WHERE 1=1"
+    params = []
+    
+    if month_str:
+        sql += " AND date LIKE ?"
+        params.append(month_str + "%")
+    if keyword:
+        sql += " AND (note LIKE ? OR category LIKE ?)"
+        params.append(f"%{keyword}%")
+        params.append(f"%{keyword}%")
+        
+    sql += " ORDER BY date DESC, id DESC"
+    
+    cursor.execute(sql, tuple(params))
     rows = cursor.fetchall()
     conn.close()
     
-    result = []
-    for row in rows:
-        result.append({
-            "id": row["id"], "amount": row["amount"],
-            "category": row["category"], "note": row["note"],
-            "date": row["date"], "type": row["type"] # 新增 type
-        })
-    return result
+    return [{"id": row["id"], "amount": row["amount"], "category": row["category"], 
+             "note": row["note"], "date": row["date"], "type": row["type"]} for row in rows]
 
 def get_monthly_stats(month_str):
-    """获取某个月份的总收入、总支出和结余"""
+    """获取某个月份的总收入、总支出、结余"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # 算总支出
     cursor.execute("SELECT SUM(amount) FROM bills WHERE date LIKE ? AND type = '支出'", (month_str + "%",))
     expense = cursor.fetchone()[0] or 0.0
     
-    # 算总收入
     cursor.execute("SELECT SUM(amount) FROM bills WHERE date LIKE ? AND type = '收入'", (month_str + "%",))
     income = cursor.fetchone()[0] or 0.0
     
@@ -73,7 +72,7 @@ def get_monthly_stats(month_str):
     return income, expense, (income - expense)
 
 def get_category_stats(month_str):
-    """获取某个月份各分类的支出总和（只看支出）"""
+    """获取某个月份各分类的支出总和"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -86,7 +85,7 @@ def get_category_stats(month_str):
     return [{"分类": row[0], "金额": row[1]} for row in rows]
 
 def delete_bill(bill_id):
-    """根据编号删除账单"""
+    """删除账单"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM bills WHERE id = ?", (bill_id,))
