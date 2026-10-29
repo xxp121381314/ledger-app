@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# 记账 APP 的网页前端界面（终极完整版）
+
 import streamlit as st
 import validators
 import storage
@@ -6,7 +8,7 @@ import datetime
 import plotly.express as px
 import pandas as pd
 
-# 初始化数据库
+# 初始化数据库（程序一启动就检查表结构）
 storage.init_db()
 
 st.set_page_config(page_title="极简记账本", page_icon="💰", layout="centered")
@@ -136,3 +138,33 @@ if filtered_bills:
         st.markdown("<hr style='border: 1px dashed #ddd; margin: 10px 0;'/>", unsafe_allow_html=True)
 else:
     st.info("没有找到符合条件的账单。")
+
+# ==================== 5. 数据导入区 ====================
+st.divider()
+st.subheader("💾 数据恢复 (支持 钱迹Excel / 本软件CSV)")
+
+uploaded_file = st.file_uploader("选择账单文件 (.xlsx 或 .csv)", type=["csv", "xlsx"])
+if uploaded_file is not None:
+    if st.button("确认导入这些数据", type="primary"):
+        try:
+            # 根据后缀名智能读取
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+            
+            # 检查有没有“金额”相关的列，防止传错文件
+            if '金额' not in df.columns and '金额(元)' not in df.columns:
+                st.error("❌ 文件格式不匹配！找不到“金额”这一列。")
+            else:
+                # 把表格转成字典，丢给底层的 storage 处理
+                records = df.to_dict('records')
+                count = storage.import_bills(records)
+                
+                if count > 0:
+                    st.success(f"✅ 成功导入 {count} 条账单！请查看下方列表。")
+                    st.rerun() # 刷新页面
+                else:
+                    st.warning("没有成功导入数据，请检查文件内容。")
+        except Exception as e:
+            st.error(f"读取失败：{e}")
