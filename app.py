@@ -9,20 +9,26 @@ import pandas as pd
 storage.init_db()
 st.set_page_config(page_title="极简记账本", page_icon="💰", layout="centered")
 
-# ==================== 0. 密码锁 ====================
+# ==================== 0. 密码锁与安全机制 ====================
+# 从数据库获取密码，如果没设置过，就初始化一个默认的 123456
+db_pwd = storage.get_setting("password", "123456")
+if storage.get_setting("password", "") == "":
+    storage.set_setting("password", "123456")
+
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
     st.title("🔒 隐私保护")
-    pwd = st.text_input("请输入密码", type="password", placeholder="默认密码：123456")
+    pwd = st.text_input("请输入密码", type="password", placeholder="请输入您的密码")
     if st.button("进入账本", use_container_width=True):
-        if pwd == "123456":  # 你可以在代码里修改这个密码
+        # 去数据库里对比密码
+        if pwd == storage.get_setting("password", ""):
             st.session_state.logged_in = True
             st.rerun()
         else:
-            st.error("密码错误！")
-    st.stop()  # 密码不对，后面的代码不执行
+            st.error("密码错误！请重试。")
+    st.stop()  # 没登录成功，后面的代码不执行
 
 # ==================== 状态管理 ====================
 if 'mode' not in st.session_state:
@@ -50,6 +56,36 @@ with c_logout:
     if st.button("🚪 退出", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
+
+# ==================== 侧边栏：设置与修改密码 ====================
+with st.sidebar:
+    st.header("⚙️ 设置")
+    
+    # 1. 预算设置
+    current_month = datetime.datetime.now().strftime("%Y-%m")
+    saved_budget = storage.get_setting("budget", "2000")
+    new_budget = st.number_input(f"设置本月总预算 (元)", value=float(saved_budget), step=100.0)
+    if new_budget != float(saved_budget):
+        storage.set_setting("budget", new_budget)
+        st.rerun()
+        
+    st.divider()
+    
+    # 2. 修改密码
+    with st.expander("🔐 修改密码"):
+        old_pwd = st.text_input("原密码", type="password", key="old_pwd")
+        new_pwd = st.text_input("新密码", type="password", key="new_pwd")
+        confirm_pwd = st.text_input("确认新密码", type="password", key="confirm_pwd")
+        if st.button("确认修改密码"):
+            if old_pwd != storage.get_setting("password", ""):
+                st.error("原密码错误！")
+            elif new_pwd != confirm_pwd:
+                st.error("两次输入的新密码不一致！")
+            elif len(new_pwd) < 4:
+                st.error("新密码长度不能少于4位！")
+            else:
+                storage.set_setting("password", new_pwd)
+                st.success("密码修改成功！下次登录请用新密码。")
 
 # ==================== 表单区域 (新增/修改) ====================
 if st.session_state.mode in ['add', 'edit']:
@@ -101,17 +137,6 @@ if st.session_state.mode in ['add', 'edit']:
 
 # ==================== 列表区域 ====================
 elif st.session_state.mode == 'view':
-    # --- 侧边栏：预算设置 ---
-    with st.sidebar:
-        st.header("⚙️ 设置")
-        current_month = datetime.datetime.now().strftime("%Y-%m")
-        saved_budget = storage.get_setting("budget", "2000")
-        new_budget = st.number_input(f"设置本月总预算 (元)", value=float(saved_budget), step=100.0)
-        if new_budget != float(saved_budget):
-            storage.set_setting("budget", new_budget)
-            st.rerun()
-
-    # --- 筛选与统计 ---
     st.divider()
     now = datetime.datetime.now()
     months_list = [(now - datetime.timedelta(days=30*i)).strftime("%Y-%m") for i in range(12)]
@@ -138,7 +163,7 @@ elif st.session_state.mode == 'view':
         else:
             st.progress(ratio, text=f"本月预算使用进度：{ratio*100:.1f}%")
 
-    # --- 饼图 & 折线图 ---
+    # --- 图表 ---
     stats_data = storage.get_category_stats(selected_month)
     if stats_data:
         col_pie, col_line = st.columns(2)
@@ -188,7 +213,6 @@ elif st.session_state.mode == 'view':
                 with col_info:
                     color = "green" if b['type'] == '收入' else "red"
                     sign = "+" if b['type'] == '收入' else "-"
-                    # 展示账户标签
                     st.markdown(f"<span style='color:{color};'>**{b['category']}** | {sign} ¥ {b['amount']:.2f}</span> <span style='color:gray;font-size:12px;'>[{b['account']}]</span> <br><small style='color:gray;'>{b['note'] or ''}</small>", unsafe_allow_html=True)
                 
                 with col_edit:
