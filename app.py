@@ -163,22 +163,14 @@ elif st.session_state.mode == 'view':
         else:
             st.progress(ratio, text=f"本月预算使用进度：{ratio*100:.1f}%")
 
-    # --- 图表 ---
+       # --- 饼图 ---
     stats_data = storage.get_category_stats(selected_month)
     if stats_data:
-        col_pie, col_line = st.columns(2)
-        with col_pie:
-            chart_data = {item["分类"]: item["金额"] for item in stats_data}
-            fig_pie = px.pie(names=list(chart_data.keys()), values=list(chart_data.values()), hole=0.4, title="分类占比")
-            fig_pie.update_layout(margin=dict(t=30, b=0, l=0, r=0), height=250, showlegend=False)
-            st.plotly_chart(fig_pie, use_container_width=True)
-        
-        with col_line:
-            trend_data = storage.get_daily_trends(selected_month)
-            if trend_data:
-                fig_line = px.line(x=list(trend_data.keys()), y=list(trend_data.values()), title="每日支出趋势", markers=True)
-                fig_line.update_layout(margin=dict(t=30, b=0, l=0, r=0), height=250, xaxis_title="", yaxis_title="")
-                st.plotly_chart(fig_line, use_container_width=True)
+        chart_data = {item["分类"]: item["金额"] for item in stats_data}
+        fig_pie = px.pie(names=list(chart_data.keys()), values=list(chart_data.values()), hole=0.4, title="本月分类占比")
+        # 稍微加高一点，并且把图例显示在侧边，看起来更大气
+        fig_pie.update_layout(margin=dict(t=40, b=0, l=0, r=0), height=320)
+        st.plotly_chart(fig_pie, use_container_width=True)
 
     # --- 导出功能 ---
     if filtered_bills:
